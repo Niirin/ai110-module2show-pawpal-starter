@@ -12,10 +12,26 @@ Core actions a user should be able to perform:
 - Briefly describe your initial UML design.
 - What classes did you include, and what responsibilities did you assign to each?
 
+- My UML contains the following object classes and methods: 
+- pet: attributes: petId, name, species, breed, age, weight, sex, medicalNotes, activityLevel, feeding, specialNeeds, tasks(list of task for that pet); methods: addTask, updateInfo, removeTask, getTasks, getTaskForDate, getImportantInfo
+- owner: userId or ownerId, name, email, preferences, pets; methods: addPet, removePet, updatePet, getPet, getAvailableTime
+- task: taskId, petId, title, category, duration, priority, frequency, preferredTime, isReq, notes, status; methods: markCompleted, markSkipped, updatePriority, updateTask, isDueOn, getTaskSummary
+- dailyPlan: planId, date, ownerId, tasks, totalEstTime, explanation; methods: generatePlan(owner, pet(s), task(s)), sortByPriority, getPlanSummary, getReason
+
+- A summary of the relationships modeled:
+    - Owner → Pet: one owner can have many pets (1 to 0..*)
+    - Pet → Task: one pet can have many tasks (1 to 0..*)
+    - Owner → DailyPlan: one owner generates many daily plans (1 to 0..*)
+    - DailyPlan → Task: each plan schedules one or more tasks (1 to 1..*)
+
 **b. Design changes**
 
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
+
+- `Task.frequency` was changed from a plain `String` to a `Frequency` enum (`DAILY`, `TWICE_DAILY`, `WEEKLY`, `BIWEEKLY`, `AS_NEEDED`). The original freeform string had no validation, meaning `isDueOn()` could silently break on a typo. An enum makes the allowed values explicit and prevents that class of bug entirely.
+- Three date fields were added to `Task`: `createdAt`, `scheduledTime`, and `lastCompleted`. Without these, `isDueOn()` had no anchor to calculate recurrence from, and `markCompleted()` had nowhere to record when a task was finished. These fields are what connect a task's definition to its actual history and assigned time slot.
+- `DailyPlan.generatePlan()` was split into two private helper methods: `_filterDueTasks()` and `_fitToTimeWindow()`. The original single method was responsible for filtering, prioritizing, and time-fitting all at once, making it hard to test or debug one step in isolation. Separating the steps means each piece of scheduling logic can be verified independently.
 
 ---
 

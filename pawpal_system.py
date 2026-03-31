@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from enum import Enum
 from typing import Optional
 from uuid import uuid4
@@ -354,12 +354,14 @@ class DailyPlan:
         self.tasks.sort(key=lambda t: (not t.isReq, -t.priority))
 
     def sortByTime(self):
-        """Sort scheduled tasks by scheduledTime in 'HH:MM' format ascending.
-        Tasks with no scheduledTime sort to the end using sentinel value '99:99'."""
-        self.tasks = sorted(
-            self.tasks,
-            key=lambda t: t.scheduledTime if t.scheduledTime is not None else "99:99",
-        )
+        """Sort scheduled tasks by scheduledTime ascending, parsed as time objects.
+        Tasks with no scheduledTime sort to the end."""
+        def _parse(t: "Task"):
+            if t.scheduledTime is None:
+                return time.max
+            return datetime.strptime(t.scheduledTime, "%H:%M").time()
+
+        self.tasks = sorted(self.tasks, key=_parse)
 
     def filterBy(
         self,

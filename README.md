@@ -32,6 +32,14 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+### Run
+
+```bash
+streamlit run app.py
+```
+
+![App run locally on streamlit](image.png)
+
 ### Suggested workflow
 
 1. Read the scenario carefully and identify requirements and edge cases.
@@ -82,4 +90,31 @@ The core scheduling logic such as due-date checks, time-budget fitting, priority
 - There are no tests for the Streamlit UI layer (`app.py`) or for `filterBy()`, `getPlanSummary()`, and `getReason()`.
 - Edge cases around owner-level operations (e.g. `getAllTasksForDate` across multiple pets) are untested.
 
+## Features
 
+### Task Recurrence Engine
+Each task carries a `frequency` (Daily, Twice Daily, Weekly, Biweekly, or As Needed) and a `lastCompleted` date. The `isDueOn()` method uses these to determine whether a task belongs on a given day — skipping tasks already finished, waiting the right number of days for weekly and biweekly tasks, and allowing as-needed tasks to always appear.
+
+### Twice-Daily Completion Tracking
+Tasks marked `TWICE_DAILY` track how many times they've been completed today with a `dailyCompletionCount` counter. The counter resets automatically when a new day begins, and a task is only considered fully complete once it reaches two completions — showing as `partially_completed` in between.
+
+### Auto-Scheduling Next Occurrence
+When a task is marked complete, the system automatically generates the next occurrence and adds it to the pet's task list. Daily tasks recur the next day; weekly tasks recur in seven days. This keeps the schedule self-maintaining without any manual re-entry.
+
+### Priority-Based Time-Window Fitting
+The scheduler fits tasks into the owner's available time budget using a two-pass algorithm. Required tasks are always included first, regardless of how long they take. Optional tasks are then ranked by priority (high to low) and added one by one until the time budget is exhausted — ensuring the most important optional tasks are never dropped first.
+
+### Conflict Detection
+After a plan is built, the system scans for tasks that share the same scheduled time slot. Any overlap — whether two tasks for the same pet or tasks across different pets — is flagged and returned as a human-readable warning string, making it easy to surface conflicts in the UI.
+
+### Flexible Plan Sorting
+A generated plan can be re-sorted two ways without rebuilding it: by priority (required tasks first, then highest-to-lowest priority) or by scheduled time (chronological order, with unscheduled tasks placed at the end).
+
+### Status and Pet Filtering
+The plan supports live filtering by task status (`pending`, `partially_completed`, `completed`, `skipped`) and by pet name. Filters can be combined and applied without modifying the underlying plan, so the original schedule is always preserved.
+
+### Plain-English Plan Explanation
+After scheduling, the system generates a short narrative summary describing which tasks were included, whether they were required or optional, and the total estimated time. This gives the owner a quick at-a-glance reason for why the day looks the way it does.
+
+### Protected Field Updates
+All classes expose an `update` method that uses an allowlist to control which fields can be changed at runtime. Attempts to modify identity fields like `petId`, `taskId`, or `ownerId` raise an error immediately, preventing accidental data corruption.

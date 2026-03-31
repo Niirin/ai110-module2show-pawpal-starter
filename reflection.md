@@ -55,12 +55,16 @@ Core actions a user should be able to perform:
 **a. How you used AI**
 
 - How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
+- Answer: I used AI for design brainstorming, especially for the UML diagram and object classes, debugging flawed logic, refining class relationships, drafting test cases, implementing code, and refactoring the code into a cleaner and more Pythonic style.
 - What kinds of prompts or questions were most helpful?
+- Answer: The most helpful prompts were the ones asking AI to explain flawed logic or specific problem areas in the code, since that saved me a lot of debugging and refactoring time. It was also very useful for drafting test plans, identifying edge cases, and helping me think through better test coverage.
 
 **b. Judgment and verification**
 
-- Describe one moment where you did not accept an AI suggestion as-is.
+- Describe one moment where you did not accept an AI suggestion as-is. 
+- Answer: One time I did not accept an AI suggestion was when it suggested a time formatting by adding '0' padding for time input which only worked for certain specific input scenarios. I opted for a more universal time conversion format.
 - How did you evaluate or verify what the AI suggested?
+- Answer: I evaluated and verified the suggestions by reading through carefully what it has implemented, backtracking if I was not sure by asking it to undo the changes, running the code manually to double-check that it did not misunderstand what I wanted it to do.
 
 ---
 
@@ -69,12 +73,16 @@ Core actions a user should be able to perform:
 **a. What you tested**
 
 - What behaviors did you test?
+- Answer: I tested on a lot of edge cases as listed in the README.md Testing section.
 - Why were these tests important?
+- Answer: These tests are important because they ensure that the system does not just run but run smoothly without crashing on bugs and edge cases.
 
 **b. Confidence**
 
 - How confident are you that your scheduler works correctly?
+- Answer: I am around 80% confident that the scheduler will work correctly.
 - What edge cases would you test next if you had more time?
+- Answer: I would check isDueOn() boundary cases, and TWICE_DAILY rollover such as making sure the counter resets by combining isDueOn(tmr).
 
 ---
 
@@ -83,11 +91,14 @@ Core actions a user should be able to perform:
 **a. What went well**
 
 - What part of this project are you most satisfied with?
+- Answer: I am most satisfied with how this project teaches me to use AI as not just a coding partner but as a co-developer. From helping plan the system design, to drafting test cases. I got really inspired in ways to use AI in a full, end-to-end system development project workflow. 
 
 **b. What you would improve**
 
 - If you had another iteration, what would you improve or redesign?
+- I would definitely redesign the UI to be more appealing and not so AI-looking design.
 
 **c. Key takeaway**
 
 - What is one important thing you learned about designing systems or working with AI on this project?
+- Answer: One important thing I learned about designing systems using AI is that the system design can change as we implement, refactor, and test the system. My 2 UML diagrams strongly points out this fact, and I now fully understand why this is the case.

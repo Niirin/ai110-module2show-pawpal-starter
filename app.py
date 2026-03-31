@@ -6,47 +6,49 @@ st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 
 st.title("🐾 PawPal+")
 
-st.markdown(
-    """
-Welcome to the PawPal+ starter app.
+# st.markdown(
+#     """
+# Welcome to the PawPal+ starter app.
 
-This file is intentionally thin. It gives you a working Streamlit app so you can start quickly,
-but **it does not implement the project logic**. Your job is to design the system and build it.
+# This file is intentionally thin. It gives you a working Streamlit app so you can start quickly,
+# but **it does not implement the project logic**. Your job is to design the system and build it.
 
-Use this app as your interactive demo once your backend classes/functions exist.
-"""
-)
+# Use this app as your interactive demo once your backend classes/functions exist.
+# """
+# )
 
-with st.expander("Scenario", expanded=True):
-    st.markdown(
-        """
-**PawPal+** is a pet care planning assistant. It helps a pet owner plan care tasks
-for their pet(s) based on constraints like time, priority, and preferences.
+# with st.expander("Scenario", expanded=True):
+#     st.markdown(
+#         """
+# **PawPal+** is a pet care planning assistant. It helps a pet owner plan care tasks
+# for their pet(s) based on constraints like time, priority, and preferences.
 
-You will design and implement the scheduling logic and connect it to this Streamlit UI.
-"""
-    )
+# You will design and implement the scheduling logic and connect it to this Streamlit UI.
+# """
+#     )
 
-with st.expander("What you need to build", expanded=True):
-    st.markdown(
-        """
-At minimum, your system should:
-- Represent pet care tasks (what needs to happen, how long it takes, priority)
-- Represent the pet and the owner (basic info and preferences)
-- Build a plan/schedule for a day that chooses and orders tasks based on constraints
-- Explain the plan (why each task was chosen and when it happens)
-"""
-    )
+# with st.expander("What you need to build", expanded=True):
+#     st.markdown(
+#         """
+# At minimum, your system should:
+# - Represent pet care tasks (what needs to happen, how long it takes, priority)
+# - Represent the pet and the owner (basic info and preferences)
+# - Build a plan/schedule for a day that chooses and orders tasks based on constraints
+# - Explain the plan (why each task was chosen and when it happens)
+# """
+#     )
 
-st.divider()
+# st.divider()
 
-st.subheader("Quick Demo Inputs")
+# st.subheader("Quick Demo Inputs")
 
 # --- Initialize vault keys once ---
 if "owner" not in st.session_state:
     st.session_state.owner = None
 if "pet" not in st.session_state:
     st.session_state.pet = None
+if "plan" not in st.session_state:
+    st.session_state.plan = None
 
 owner_name = st.text_input("Owner name", value="Jordan")
 pet_name = st.text_input("Pet name", value="Mochi")
@@ -66,6 +68,7 @@ if st.button("Set up owner & pet"):
 if st.button("Reset owner & pet"):
     st.session_state.owner = None
     st.session_state.pet = None
+    st.session_state.plan = None
     st.success("Session cleared. You can set up a new owner and pet.")
 
 st.markdown("### Tasks")
@@ -118,11 +121,71 @@ if st.button("Generate schedule"):
         owner = st.session_state.owner
         plan = DailyPlan(plan_date=date.today(), ownerId=owner.ownerId)
         plan.generatePlan(owner, owner.pets, owner.getAllTasks())
-        summary = plan.getPlanSummary()
+        st.session_state.plan = plan
 
-        st.success(f"Scheduled {summary['taskCount']} task(s) — {summary['totalEstTime']} min total")
-        st.markdown(f"**Plan explanation:** {summary['explanation']}")
+if "plan" in st.session_state and st.session_state.plan is not None:
+    plan = st.session_state.plan
+    owner = st.session_state.owner
+    summary = plan.getPlanSummary()
 
-        if summary["tasks"]:
-            st.markdown("### Scheduled Tasks")
-            st.table(summary["tasks"])
+    st.success(f"Scheduled {summary['taskCount']} task(s) — {summary['totalEstTime']} min total")
+    st.markdown(f"**Plan explanation:** {summary['explanation']}")
+
+    # --- Conflict detection ---
+    pets_lookup = {p.petId: p for p in owner.pets}
+    conflicts = plan.detectConflicts(pets=pets_lookup)
+    if conflicts:
+        st.markdown("#### Task Conflicts")
+        for msg in conflicts:
+            st.warning(msg)
+    else:
+        st.info("No scheduling conflicts detected.")
+
+    if summary["tasks"]:
+        st.markdown("### Scheduled Tasks")
+
+        col_sort, col_filter = st.columns(2)
+        with col_sort:
+            sort_order = st.selectbox(
+                "Sort by",
+                ["Priority (default)", "Scheduled time"],
+                key="sort_order",
+            )
+        with col_filter:
+            status_filter = st.selectbox(
+                "Filter by status",
+                ["All", "pending", "partially_completed", "completed", "skipped"],
+                key="status_filter",
+            )
+
+        # Apply sort via DailyPlan methods
+        if sort_order == "Scheduled time":
+            plan.sortByTime()
+        else:
+            plan.sortByPriority()
+
+        # Apply filter via DailyPlan.filterBy
+        filter_status = None if status_filter == "All" else status_filter
+        visible_tasks = plan.filterBy(status=filter_status)
+
+        if visible_tasks:
+            display_rows = [
+                {
+                    "Title":          t.title,
+                    "Category":       t.category,
+                    "Duration (min)": t.duration,
+                    "Priority":       {1: "Low", 2: "Medium", 3: "High"}.get(t.priority, t.priority),
+                    "Preferred Time": t.preferredTime,
+                    "Scheduled At":   t.scheduledTime or "—",
+                    "Required":       "Yes" if t.isReq else "No",
+                    "Status":         t.status,
+                }
+                for t in visible_tasks
+            ]
+            st.table(display_rows)
+        else:
+            st.info(f"No tasks match the filter: '{status_filter}'.")
+
+if st.button("Clear schedule"):
+    st.session_state.plan = None
+    st.rerun()

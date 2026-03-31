@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from enum import Enum
 from typing import Optional
 from uuid import uuid4
@@ -109,6 +109,30 @@ class Task:
 
         return False
 
+    def getNextOccurrence(self) -> Optional["Task"]:
+        """Return a new Task for the next occurrence of this task (DAILY: +1 day, WEEKLY: +7 days).
+        Returns None for all other frequencies."""
+        if self.frequency == Frequency.DAILY:
+            next_date = date.today() + timedelta(days=1)
+        elif self.frequency == Frequency.WEEKLY:
+            next_date = date.today() + timedelta(weeks=1)
+        else:
+            return None
+
+        return Task(
+            petId=self.petId,
+            title=self.title,
+            category=self.category,
+            frequency=self.frequency,
+            duration=self.duration,
+            priority=self.priority,
+            preferredTime=self.preferredTime,
+            isReq=self.isReq,
+            notes=self.notes,
+            scheduledTime=self.scheduledTime,
+            createdAt=next_date,
+        )
+
     def getTaskSummary(self) -> dict:
         """Return a flat dict of the task's key fields for display or plan output."""
         return {
@@ -172,6 +196,16 @@ class Pet:
             if key not in allowed:
                 raise KeyError(f"'{key}' is not an editable Pet field.")
             setattr(self, key, value)
+
+    def markTaskCompleted(self, taskId: str):
+        """Mark a task completed and auto-schedule the next occurrence for DAILY/WEEKLY tasks."""
+        task = next((t for t in self.tasks if t.taskId == taskId), None)
+        if task is None:
+            raise KeyError(f"No task with id '{taskId}' found for {self.name}.")
+        task.markCompleted()
+        next_task = task.getNextOccurrence()
+        if next_task is not None:
+            self.tasks.append(next_task)
 
     def getTasks(self) -> list[Task]:
         """Return a copy of all tasks belonging to this pet."""
@@ -290,8 +324,8 @@ class DailyPlan:
         return [t for t in tasks if t.isDueOn(check_date)]
 
     def _fitToTimeWindow(self, tasks: list[Task], availableMinutes: int) -> list[Task]:
-        """Fill the time window with tasks: required tasks first (always kept),
-        then optional tasks sorted highest priority first until time runs out."""
+        """Always include required tasks, then fill remaining time with optional tasks by priority descending.
+        Optional tasks are skipped if they would exceed the available time budget."""
         required  = [t for t in tasks if t.isReq]
         optional  = sorted(
             [t for t in tasks if not t.isReq],
@@ -318,6 +352,63 @@ class DailyPlan:
     def sortByPriority(self):
         """Sort scheduled tasks: required first, then by priority descending."""
         self.tasks.sort(key=lambda t: (not t.isReq, -t.priority))
+
+    def sortByTime(self):
+        """Sort scheduled tasks by scheduledTime in 'HH:MM' format ascending.
+        Tasks with no scheduledTime sort to the end using sentinel value '99:99'."""
+        self.tasks = sorted(
+            self.tasks,
+            key=lambda t: t.scheduledTime if t.scheduledTime is not None else "99:99",
+        )
+
+    def filterBy(
+        self,
+        status: Optional[str] = None,
+        pet_name: Optional[str] = None,
+        pets: Optional[dict] = None,
+    ) -> list[Task]:
+        """Return tasks filtered by completion status and/or pet name.
+        Requires the pets lookup dict when filtering by pet_name."""
+        result = self.tasks
+
+        if status is not None:
+            result = [t for t in result if t.status == status]
+
+        if pet_name is not None and pets is not None:
+            result = [t for t in result if pets.get(t.petId) and pets[t.petId].name.lower() == pet_name.lower()]
+
+        return result
+
+    def detectConflicts(self, pets: Optional[dict] = None) -> list[str]:
+        """Check for tasks sharing the same scheduledTime and return warning strings.
+        Pass pets dict to show pet names instead of petIds in warnings."""
+        warnings = []
+
+        # Group tasks by scheduledTime, skipping tasks with no time assigned
+        slots: dict[str, list[Task]] = {}
+        for task in self.tasks:
+            if task.scheduledTime is not None:
+                slots.setdefault(task.scheduledTime, []).append(task)
+
+        for time_slot, conflicting in slots.items():
+            if len(conflicting) < 2:
+                continue
+            for i, a in enumerate(conflicting):
+                for b in conflicting[i + 1:]:
+                    name_a = pets[a.petId].name if pets and a.petId in pets else a.petId
+                    name_b = pets[b.petId].name if pets and b.petId in pets else b.petId
+                    if a.petId == b.petId:
+                        warnings.append(
+                            f"WARNING: '{a.title}' and '{b.title}' for {name_a} "
+                            f"are both scheduled at {time_slot}."
+                        )
+                    else:
+                        warnings.append(
+                            f"WARNING: '{a.title}' ({name_a}) and '{b.title}' ({name_b}) "
+                            f"overlap at {time_slot}."
+                        )
+
+        return warnings
 
     def getTasksByPet(self) -> dict[str, list[Task]]:
         """Return scheduled tasks grouped by petId."""

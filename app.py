@@ -1,4 +1,6 @@
 import streamlit as st
+from pawpal_system import Owner, Pet, Task, DailyPlan, Frequency
+
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 
@@ -38,16 +40,36 @@ At minimum, your system should:
 
 st.divider()
 
-st.subheader("Quick Demo Inputs (UI only)")
+st.subheader("Quick Demo Inputs")
+
+# --- Initialize vault keys once ---
+if "owner" not in st.session_state:
+    st.session_state.owner = None
+if "pet" not in st.session_state:
+    st.session_state.pet = None
+
 owner_name = st.text_input("Owner name", value="Jordan")
 pet_name = st.text_input("Pet name", value="Mochi")
 species = st.selectbox("Species", ["dog", "cat", "other"])
 
+if st.button("Set up owner & pet"):
+    if st.session_state.owner is None:
+        pet = Pet(name=pet_name, species=species, breed="mixed", age=3, weight=10.0, sex="F")
+        owner = Owner(name=owner_name, email="", availableMinutes=60)
+        owner.addPet(pet)
+        st.session_state.owner = owner
+        st.session_state.pet = pet
+        st.success(f"Created owner '{owner_name}' with pet '{pet_name}'!")
+    else:
+        st.info(f"Owner '{st.session_state.owner.name}' already exists. Reset below to start over.")
+
+if st.button("Reset owner & pet"):
+    st.session_state.owner = None
+    st.session_state.pet = None
+    st.success("Session cleared. You can set up a new owner and pet.")
+
 st.markdown("### Tasks")
 st.caption("Add a few tasks. In your final version, these should feed into your scheduler.")
-
-if "tasks" not in st.session_state:
-    st.session_state.tasks = []
 
 col1, col2, col3 = st.columns(3)
 with col1:
@@ -58,31 +80,49 @@ with col3:
     priority = st.selectbox("Priority", ["low", "medium", "high"], index=2)
 
 if st.button("Add task"):
-    st.session_state.tasks.append(
-        {"title": task_title, "duration_minutes": int(duration), "priority": priority}
-    )
+    if st.session_state.pet is None:
+        st.error("Set up an owner & pet first before adding tasks.")
+    else:
+        priority_map = {"low": 1, "medium": 2, "high": 3}
+        task = Task(
+            petId=st.session_state.pet.petId,
+            title=task_title,
+            category="general",
+            frequency=Frequency.DAILY,
+            duration=int(duration),
+            priority=priority_map[priority],
+            preferredTime="morning",
+            isReq=False,
+        )
+        st.session_state.pet.addTask(task)
+        st.success(f"Added task: {task_title}")
 
-if st.session_state.tasks:
+if st.session_state.pet and st.session_state.pet.tasks:
     st.write("Current tasks:")
-    st.table(st.session_state.tasks)
+    st.table([t.getTaskSummary() for t in st.session_state.pet.tasks])
 else:
     st.info("No tasks yet. Add one above.")
 
 st.divider()
 
 st.subheader("Build Schedule")
-st.caption("This button should call your scheduling logic once you implement it.")
+st.caption("Generates a daily plan for all due tasks fitted to the owner's available time.")
 
 if st.button("Generate schedule"):
-    st.warning(
-        "Not implemented yet. Next step: create your scheduling logic (classes/functions) and call it here."
-    )
-    st.markdown(
-        """
-Suggested approach:
-1. Design your UML (draft).
-2. Create class stubs (no logic).
-3. Implement scheduling behavior.
-4. Connect your scheduler here and display results.
-"""
-    )
+    if st.session_state.owner is None or st.session_state.pet is None:
+        st.error("Set up an owner & pet first.")
+    elif not st.session_state.pet.tasks:
+        st.error("Add at least one task before generating a schedule.")
+    else:
+        from datetime import date
+        owner = st.session_state.owner
+        plan = DailyPlan(plan_date=date.today(), ownerId=owner.ownerId)
+        plan.generatePlan(owner, owner.pets, owner.getAllTasks())
+        summary = plan.getPlanSummary()
+
+        st.success(f"Scheduled {summary['taskCount']} task(s) — {summary['totalEstTime']} min total")
+        st.markdown(f"**Plan explanation:** {summary['explanation']}")
+
+        if summary["tasks"]:
+            st.markdown("### Scheduled Tasks")
+            st.table(summary["tasks"])

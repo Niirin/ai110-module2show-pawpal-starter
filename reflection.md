@@ -46,7 +46,8 @@ Core actions a user should be able to perform:
 
 - Describe one tradeoff your scheduler makes.
 - Why is that tradeoff reasonable for this scenario?
-
+- One tradeoff of this scheduler is: ease of implementation but not too realistic. It works by including required tasks first, then fill remaining time with optional tasks by priority. However, it does not deeply consider preferred times, task order dependencies, medication timing rules, or whether two tasks should happen far apart.
+- This tradeoff is reasonable for this scenario because this is the 1st iteration of the system. The current implementation is practical and easy to understand as well as use. The more complex inner logic can be added in later versions.
 ---
 
 ## 3. AI Collaboration

@@ -2,6 +2,11 @@
 
 ## 1. System Design
 
+Core actions a user should be able to perform:
+- Add/register a pet and their information
+- Add (daily) tasks related to that pet
+- Prioritize the tasks and make it into a pet care plan 
+
 **a. Initial design**
 
 - Briefly describe your initial UML design.
